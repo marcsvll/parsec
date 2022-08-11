@@ -8,7 +8,10 @@ use parsec_interface::operations::{psa_asymmetric_decrypt, psa_asymmetric_encryp
 use parsec_interface::requests::{ResponseStatus, Result};
 use std::convert::TryInto;
 use std::ops::Deref;
-use tss_esapi::{constants::Tss2ResponseCodeKind, Error};
+use tss_esapi::constants::TpmFormatOneError;
+use tss_esapi::error::TpmResponseCode;
+use tss_esapi::Error;
+use tss_esapi::ReturnCode;
 
 impl Provider {
     pub(super) fn psa_asymmetric_encrypt_internal(
@@ -125,8 +128,10 @@ impl Provider {
                 if let Algorithm::AsymmetricEncryption(AsymmetricEncryption::RsaPkcs1v15Crypt) =
                     key_attributes.policy.permitted_algorithms
                 {
-                    if let Error::Tss2Error(e) = tss_error {
-                        if Some(Tss2ResponseCodeKind::Value) == e.kind() {
+                    if let Error::TssError(ReturnCode::Tpm(TpmResponseCode::FormatOne(err))) =
+                        tss_error
+                    {
+                        if err.error_number() == TpmFormatOneError::Value {
                             format_error!("Wrong plaintext padding", tss_error);
                             return Err(ResponseStatus::PsaErrorInvalidPadding);
                         }

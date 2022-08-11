@@ -9,6 +9,7 @@ use crate::authenticators::ApplicationIdentity;
 use crate::key_info_managers::KeyInfoManagerClient;
 use crate::providers::crypto_capability::CanDoCrypto;
 use crate::providers::ProviderIdentity;
+use crate::utils::config::TpmRotConfig;
 use derivative::Derivative;
 use log::{info, trace};
 use parsec_interface::operations::{
@@ -77,6 +78,7 @@ pub struct Provider {
     // structure).
     #[derivative(Debug = "ignore")]
     key_info_store: KeyInfoManagerClient,
+    rot_config: Option<TpmRotConfig>,
 }
 
 impl Provider {
@@ -91,6 +93,7 @@ impl Provider {
         provider_name: String,
         key_info_store: KeyInfoManagerClient,
         esapi_context: tss_esapi::TransientKeyContext,
+        rot_config: Option<TpmRotConfig>,
     ) -> Provider {
         Provider {
             provider_identity: ProviderIdentity {
@@ -99,6 +102,7 @@ impl Provider {
             },
             esapi_context: Mutex::new(esapi_context),
             key_info_store,
+            rot_config,
         }
     }
 }
@@ -271,6 +275,7 @@ pub struct ProviderBuilder {
     tcti: Option<String>,
     owner_hierarchy_auth: Option<String>,
     endorsement_hierarchy_auth: Option<String>,
+    rot_config: Option<TpmRotConfig>,
 }
 
 impl ProviderBuilder {
@@ -282,6 +287,7 @@ impl ProviderBuilder {
             tcti: None,
             owner_hierarchy_auth: None,
             endorsement_hierarchy_auth: None,
+            rot_config: None,
         }
     }
 
@@ -319,6 +325,13 @@ impl ProviderBuilder {
         endorsement_hierarchy_auth: String,
     ) -> ProviderBuilder {
         self.endorsement_hierarchy_auth = Some(endorsement_hierarchy_auth);
+
+        self
+    }
+
+    /// Specify the root of trust to use
+    pub fn with_rot_config(mut self, rot_config: Option<TpmRotConfig>) -> ProviderBuilder {
+        self.rot_config = rot_config;
 
         self
     }
@@ -427,6 +440,7 @@ impl ProviderBuilder {
                 format_error!("Error creating TSS Transient Object Context", e);
                 std::io::Error::new(ErrorKind::InvalidData, "failed initializing TSS context")
             })?,
+            self.rot_config,
         ))
     }
 }

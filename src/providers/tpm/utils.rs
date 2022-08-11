@@ -12,7 +12,6 @@ use picky_asn1_x509::RsaPublicKey;
 use serde::{Deserialize, Serialize};
 use std::convert::{TryFrom, TryInto};
 use tss_esapi::abstraction::transient::{KeyMaterial, KeyParams};
-use tss_esapi::constants::response_code::Tss2ResponseCodeKind;
 use tss_esapi::interface_types::{
     algorithm::HashingAlgorithm, ecc::EccCurve, key_bits::RsaKeyBits,
 };
@@ -40,57 +39,60 @@ pub fn to_response_status(error: Error) -> ResponseStatus {
             format_error!("Conversion to PsaErrorCommunicationFailure", e);
             ResponseStatus::PsaErrorCommunicationFailure
         }
-        Error::Tss2Error(e) => {
-            if let Some(kind) = e.kind() {
-                match kind {
-                    Tss2ResponseCodeKind::Success => ResponseStatus::Success,
-                    Tss2ResponseCodeKind::Signature => ResponseStatus::PsaErrorInvalidSignature,
-                    Tss2ResponseCodeKind::ObjectMemory => {
-                        ResponseStatus::PsaErrorInsufficientMemory
-                    }
-                    Tss2ResponseCodeKind::SessionMemory => {
-                        ResponseStatus::PsaErrorInsufficientMemory
-                    }
-                    Tss2ResponseCodeKind::Memory => ResponseStatus::PsaErrorInsufficientMemory,
-                    Tss2ResponseCodeKind::Retry => ResponseStatus::PsaErrorHardwareFailure,
-                    s @ Tss2ResponseCodeKind::Asymmetric
-                    | s @ Tss2ResponseCodeKind::Hash
-                    | s @ Tss2ResponseCodeKind::KeySize
-                    | s @ Tss2ResponseCodeKind::Mgf
-                    | s @ Tss2ResponseCodeKind::Mode
-                    | s @ Tss2ResponseCodeKind::Kdf
-                    | s @ Tss2ResponseCodeKind::Scheme
-                    | s @ Tss2ResponseCodeKind::Symmetric
-                    | s @ Tss2ResponseCodeKind::Curve => {
-                        if crate::utils::GlobalConfig::log_error_details() {
-                            error!("Not supported value ({:?})", s);
-                        }
-                        ResponseStatus::PsaErrorNotSupported
-                    }
-                    e => {
-                        if crate::utils::GlobalConfig::log_error_details() {
-                            error!(
-                                "Error \"{:?}\" converted to PsaErrorCommunicationFailure.",
-                                e
-                            );
-                        } else {
-                            error!("Error converted to PsaErrorCommunicationFailure.");
-                        }
-                        ResponseStatus::PsaErrorCommunicationFailure
-                    }
-                }
-            } else {
-                if crate::utils::GlobalConfig::log_error_details() {
-                    error!(
-                        "Can not encode value {} into on of the possible TSS return values.",
-                        e
-                    );
-                } else {
-                    error!("Can not encode value into on of the possible TSS return values.");
-                }
-                ResponseStatus::InvalidEncoding
-            }
-        }
+        _ => {
+            format_error!("Conversion to PsaErrorCommunicationFailure", error);
+            ResponseStatus::PsaErrorCommunicationFailure
+        } // Error::Tss2Error(e) => {
+          //     if let Some(kind) = e.kind() {
+          //         match kind {
+          //             Tss2ResponseCodeKind::Success => ResponseStatus::Success,
+          //             Tss2ResponseCodeKind::Signature => ResponseStatus::PsaErrorInvalidSignature,
+          //             Tss2ResponseCodeKind::ObjectMemory => {
+          //                 ResponseStatus::PsaErrorInsufficientMemory
+          //             }
+          //             Tss2ResponseCodeKind::SessionMemory => {
+          //                 ResponseStatus::PsaErrorInsufficientMemory
+          //             }
+          //             Tss2ResponseCodeKind::Memory => ResponseStatus::PsaErrorInsufficientMemory,
+          //             Tss2ResponseCodeKind::Retry => ResponseStatus::PsaErrorHardwareFailure,
+          //             s @ Tss2ResponseCodeKind::Asymmetric
+          //             | s @ Tss2ResponseCodeKind::Hash
+          //             | s @ Tss2ResponseCodeKind::KeySize
+          //             | s @ Tss2ResponseCodeKind::Mgf
+          //             | s @ Tss2ResponseCodeKind::Mode
+          //             | s @ Tss2ResponseCodeKind::Kdf
+          //             | s @ Tss2ResponseCodeKind::Scheme
+          //             | s @ Tss2ResponseCodeKind::Symmetric
+          //             | s @ Tss2ResponseCodeKind::Curve => {
+          //                 if crate::utils::GlobalConfig::log_error_details() {
+          //                     error!("Not supported value ({:?})", s);
+          //                 }
+          //                 ResponseStatus::PsaErrorNotSupported
+          //             }
+          //             e => {
+          //                 if crate::utils::GlobalConfig::log_error_details() {
+          //                     error!(
+          //                         "Error \"{:?}\" converted to PsaErrorCommunicationFailure.",
+          //                         e
+          //                     );
+          //                 } else {
+          //                     error!("Error converted to PsaErrorCommunicationFailure.");
+          //                 }
+          //                 ResponseStatus::PsaErrorCommunicationFailure
+          //             }
+          //         }
+          //     } else {
+          //         if crate::utils::GlobalConfig::log_error_details() {
+          //             error!(
+          //                 "Can not encode value {} into on of the possible TSS return values.",
+          //                 e
+          //             );
+          //         } else {
+          //             error!("Can not encode value into on of the possible TSS return values.");
+          //         }
+          //         ResponseStatus::InvalidEncoding
+          //     }
+          // }
     }
 }
 

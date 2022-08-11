@@ -32,6 +32,8 @@ use std::io::Error;
     feature = "trusted-service-provider"
 )))]
 use std::io::ErrorKind;
+#[cfg(feature = "tpm-provider")]
+use tss_esapi::interface_types::algorithm::HashingAlgorithm;
 use zeroize::Zeroize;
 
 /// Core settings
@@ -129,6 +131,31 @@ pub struct KeyInfoManagerConfig {
     pub sqlite_db_path: Option<String>,
 }
 
+///TPM root of trust configuration
+#[derive(Clone, Deserialize, Debug, Zeroize)]
+pub struct TpmRotConfig {
+    /// List of slot numbers for the selection list
+    pub pcr_list: Option<Vec<u8>>,
+    /// Hashing algorithm for the selection list
+    pub pcr_hash_alg: Option<PcrHashAlgType>,
+}
+
+/// Type of the PCR hashing algorithm
+#[derive(Copy, Clone, Deserialize, Debug, Zeroize)]
+pub enum PcrHashAlgType {
+    ///Sha256 hashing algorithm
+    Sha256,
+}
+
+#[cfg(feature = "tpm-provider")]
+impl From<PcrHashAlgType> for HashingAlgorithm {
+    fn from(pcr_hash_alg: PcrHashAlgType) -> Self {
+        match pcr_hash_alg {
+            PcrHashAlgType::Sha256 => HashingAlgorithm::Sha256,
+        }
+    }
+}
+
 /// Provider configuration structure
 /// For providers configs in Parsec config.toml we use a format similar
 /// to the one described in the Internally Tagged Enum representation
@@ -179,6 +206,8 @@ pub enum ProviderConfig {
         /// Allows the service to still start without this provider if there is no TPM on the
         /// system. The priority list of providers will be as if this provider was commented out.
         skip_if_no_tpm: Option<bool>,
+        /// Root of trust
+        rot_config: Option<TpmRotConfig>,
     },
     /// Microchip CryptoAuthentication Library provider configuration
     CryptoAuthLib {
