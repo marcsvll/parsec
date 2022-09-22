@@ -453,6 +453,7 @@ fn activate_cred_no_auth() {
     );
 }
 
+<<<<<<< HEAD
 #[cfg(feature = "pkcs11-provider")]
 fn init_pkcs11_token(lib: &str, so_pin: &str, pin: &str) -> String {
     use cryptoki::context::{CInitializeArgs, Pkcs11};
@@ -690,4 +691,72 @@ fn allow_deprecated() {
         ),
         Ok(())
     );
+
+#[test]
+fn attestation_rsa() {
+    set_config("attestation_rsa.toml");
+    reload_service();
+
+    let mut client = TestClient::new();
+    let key_name = auto_test_keyname!();
+    client.generate_rsa_sign_key(key_name.clone()).unwrap();
+
+    let _ = client.certify_and_quote(key_name, vec![0x88; 16]).unwrap();
+}
+
+#[test]
+fn attestation_ecc() {
+    set_config("attestation_ecc.toml");
+    reload_service();
+
+    let mut client = TestClient::new();
+    let key_name = auto_test_keyname!();
+    client.generate_rsa_sign_key(key_name.clone()).unwrap();
+
+    let _ = client.certify_and_quote(key_name, vec![0x88; 16]).unwrap();
+}
+
+#[test]
+fn attestation_none() {
+    set_config("attestation_none.toml");
+    reload_service();
+
+    let mut client = TestClient::new();
+    let key_name = auto_test_keyname!();
+    client.generate_rsa_sign_key(key_name.clone()).unwrap();
+
+    assert_eq!(
+        client.certify_and_quote(key_name, vec![0x88; 16]),
+        Err(ResponseStatus::PsaErrorDoesNotExist)
+    )
+}
+
+#[test]
+fn root_of_trust_does_not_exist() {
+    set_config("root_of_trust_does_not_exist.toml");
+    reload_service();
+
+    let mut client = TestClient::new();
+    let key_name = auto_test_keyname!();
+    client.generate_rsa_sign_key(key_name.clone()).unwrap();
+
+    assert_eq!(
+        client.certify_and_quote(key_name, vec![0x88; 16]),
+        Err(ResponseStatus::PsaErrorGenericError)
+    )
+}
+
+#[test]
+fn root_of_trust_invalid() {
+    set_config("root_of_trust_invalid.toml");
+    reload_service();
+
+    let mut client = TestClient::new();
+    let key_name = auto_test_keyname!();
+    client.generate_rsa_sign_key(key_name.clone()).unwrap();
+
+    assert_eq!(
+        client.certify_and_quote(key_name, vec![0x88; 16]),
+        Err(ResponseStatus::PsaErrorGenericError)
+    )
 }

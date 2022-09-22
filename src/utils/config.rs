@@ -140,6 +140,15 @@ pub struct TpmRotConfig {
     pub pcr_hash_alg: Option<PcrHashAlgType>,
 }
 
+/// Attesting key configuration
+#[derive(Copy, Clone, Deserialize, Debug, Zeroize)]
+pub enum AttestingKeyConfig {
+    /// RSA key type
+    Rsa,
+    /// ECC key type
+    Ecc,
+}
+
 /// Type of the PCR hashing algorithm
 #[derive(Copy, Clone, Deserialize, Debug, Zeroize)]
 pub enum PcrHashAlgType {
@@ -207,7 +216,9 @@ pub enum ProviderConfig {
         /// system. The priority list of providers will be as if this provider was commented out.
         skip_if_no_tpm: Option<bool>,
         /// Root of trust
-        rot_config: Option<TpmRotConfig>,
+        root_of_trust: Option<TpmRotConfig>,
+        /// Attesting key
+        attesting_key: Option<AttestingKeyConfig>,
     },
     /// Microchip CryptoAuthentication Library provider configuration
     CryptoAuthLib {

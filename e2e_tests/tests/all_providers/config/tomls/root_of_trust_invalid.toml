@@ -6,8 +6,6 @@ log_error_details = true
 # The container runs the Parsec service as root, so make sure we disable root
 # checks.
 allow_root = true
-# Allow deprecated for testing
-allow_deprecated = true
 
 [listener]
 listener_type = "DomainSocket"
@@ -30,3 +28,5 @@ key_info_manager = "on-disk-manager"
 tcti = "mssim:host=127.0.0.1,port=2321"
 owner_hierarchy_auth = ""
 endorsement_hierarchy_auth = ""
+root_of_trust = {pcr_list = [0,1,32] ,pcr_hash_alg = "Sha256"}
+attesting_key = "Rsa"

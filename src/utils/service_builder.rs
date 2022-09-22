@@ -350,7 +350,8 @@ unsafe fn get_provider(
             owner_hierarchy_auth,
             endorsement_hierarchy_auth,
             skip_if_no_tpm,
-            rot_config,
+            root_of_trust,
+            attesting_key,
             ..
         } => {
             use std::str::FromStr;
@@ -385,7 +386,8 @@ unsafe fn get_provider(
                 .with_tcti(tcti)
                 .with_provider_name(config.provider_name()?)
                 .with_owner_hierarchy_auth(owner_hierarchy_auth.clone())
-                .with_rot_config(rot_config.clone());
+                .with_root_of_trust(root_of_trust.clone())
+                .with_attesting_key(*attesting_key);
             if endorsement_hierarchy_auth.is_some() {
                 builder = builder.with_endorsement_hierarchy_auth(
                     endorsement_hierarchy_auth.as_ref().unwrap().clone(),

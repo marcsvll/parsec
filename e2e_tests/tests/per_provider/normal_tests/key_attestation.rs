@@ -212,4 +212,56 @@ mod activate_credential {
         // The first 2 bytes of the name represent the hash algorithm used
         assert_eq!(prep_activ_cred.name[2..], hash[..]);
     }
+
+    #[test]
+    fn certify_and_quote() {
+        let key_name = auto_test_keyname!();
+        let mut client = TestClient::new();
+        let nonce = vec![88, 32];
+        if !client.is_operation_supported(Opcode::PrepareKeyAttestation) {
+            return;
+        }
+        client
+            .generate_rsa_sign_key(key_name.clone())
+            .expect("Failed to generate key");
+
+        let _ = client
+            .certify_and_quote(key_name, nonce)
+            .expect("Attestation failed");
+    }
+    #[test]
+    fn certify_and_quote_with_non_existing_key() {
+        let key_name = auto_test_keyname!();
+        let mut client = TestClient::new();
+        let nonce = vec![88, 32];
+        if !client.is_operation_supported(Opcode::PrepareKeyAttestation) {
+            return;
+        }
+
+        assert_eq!(
+            client.certify_and_quote(key_name, nonce).unwrap_err(),
+            //I don't think that this is the correct error
+            ResponseStatus::PsaErrorDoesNotExist
+        );
+    }
+
+    #[test]
+    fn certify_and_quote_with_unsupported_key() {
+        let key_name = auto_test_keyname!();
+        let mut client = TestClient::new();
+        let nonce = vec![88, 32];
+        if !client.is_operation_supported(Opcode::PrepareKeyAttestation) {
+            return;
+        }
+
+        client
+            .generate_ecc_key_pair_secpr1_ecdsa_sha256(key_name.clone())
+            .expect("Failed to generate key");
+
+        assert_eq!(
+            client.certify_and_quote(key_name, nonce).unwrap_err(),
+            //I don't think that this is the correct error
+            ResponseStatus::PsaErrorCommunicationFailure
+        );
+    }
 }

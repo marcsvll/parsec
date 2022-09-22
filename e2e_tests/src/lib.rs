@@ -916,6 +916,25 @@ impl TestClient {
             .activate_credential_attestation(key_name, attesting_key, credential, secret)
             .map_err(convert_error)
     }
+
+    pub fn certify_and_quote(
+        &self,
+        key_name: String,
+        nonce: Vec<u8>,
+    ) -> Result<(Vec<u8>, Vec<u8>)> {
+        self.certify_and_quote_with_key(key_name, None, nonce)
+    }
+
+    pub fn certify_and_quote_with_key(
+        &self,
+        key_name: String,
+        attesting_key: Option<String>,
+        nonce: Vec<u8>,
+    ) -> Result<(Vec<u8>, Vec<u8>)> {
+        self.basic_client
+            .certify_and_quote_attestation(key_name, attesting_key, nonce)
+            .map_err(convert_error)
+    }
 }
 
 impl Default for TestClient {

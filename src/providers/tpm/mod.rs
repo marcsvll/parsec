@@ -6,19 +6,24 @@
 //! for their Parsec operations.
 use super::Provide;
 use crate::authenticators::ApplicationIdentity;
-use crate::key_info_managers::KeyInfoManagerClient;
+use crate::key_info_managers::{KeyIdentity, KeyInfoManagerClient};
 use crate::providers::crypto_capability::CanDoCrypto;
 use crate::providers::ProviderIdentity;
-use crate::utils::config::TpmRotConfig;
+use crate::utils::config::{AttestingKeyConfig, TpmRotConfig};
 use derivative::Derivative;
 use log::{info, trace};
+use parsec_interface::operations::psa_algorithm::Algorithm;
+use parsec_interface::operations::psa_algorithm::AsymmetricSignature::{Ecdsa, RsaPkcs1v15Sign};
+use parsec_interface::operations::psa_algorithm::Hash::Sha256;
+use parsec_interface::operations::psa_algorithm::SignHash::Specific;
+use parsec_interface::operations::psa_key_attributes::{EccFamily, Policy, UsageFlags};
 use parsec_interface::operations::{
     attest_key, can_do_crypto, prepare_key_attestation, psa_asymmetric_decrypt,
     psa_asymmetric_encrypt, psa_destroy_key, psa_export_public_key, psa_generate_key,
-    psa_generate_random, psa_import_key, psa_sign_hash, psa_verify_hash,
+    psa_generate_random, psa_import_key, psa_key_attributes, psa_sign_hash, psa_verify_hash,
 };
 use parsec_interface::operations::{list_clients, list_keys, list_providers::ProviderInfo};
-use parsec_interface::requests::{Opcode, ProviderId, ResponseStatus, Result};
+use parsec_interface::requests::{AuthType, Opcode, ProviderId, ResponseStatus, Result};
 use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::str::FromStr;
@@ -78,7 +83,8 @@ pub struct Provider {
     // structure).
     #[derivative(Debug = "ignore")]
     key_info_store: KeyInfoManagerClient,
-    rot_config: Option<TpmRotConfig>,
+    root_of_trust: Option<TpmRotConfig>,
+    attesting_key: Option<AttestingKeyConfig>,
 }
 
 impl Provider {
@@ -93,17 +99,85 @@ impl Provider {
         provider_name: String,
         key_info_store: KeyInfoManagerClient,
         esapi_context: tss_esapi::TransientKeyContext,
-        rot_config: Option<TpmRotConfig>,
-    ) -> Provider {
-        Provider {
+        root_of_trust: Option<TpmRotConfig>,
+        attesting_key: Option<AttestingKeyConfig>,
+    ) -> std::io::Result<Provider> {
+        let provider = Provider {
             provider_identity: ProviderIdentity {
                 name: provider_name,
                 uuid: String::from(Self::PROVIDER_UUID),
             },
             esapi_context: Mutex::new(esapi_context),
             key_info_store,
-            rot_config,
-        }
+            root_of_trust,
+            attesting_key,
+        };
+        let application_identity =
+            ApplicationIdentity::new(String::from("Provider"), AuthType::NoAuth);
+        match attesting_key {
+            Some(AttestingKeyConfig::Ecc) => {
+                let op = psa_generate_key::Operation {
+                    key_name: String::from("Attesting Key"),
+                    attributes: psa_key_attributes::Attributes {
+                        lifetime: psa_key_attributes::Lifetime::Persistent,
+                        key_type: psa_key_attributes::Type::EccKeyPair {
+                            curve_family: EccFamily::SecpR1,
+                        },
+                        bits: 256,
+                        policy: Policy {
+                            usage_flags: *UsageFlags::default()
+                                .set_sign_hash()
+                                .set_sign_message()
+                                .set_verify_hash()
+                                .set_verify_message(),
+                            permitted_algorithms: Algorithm::AsymmetricSignature(Ecdsa {
+                                hash_alg: Specific(Sha256),
+                            }),
+                        },
+                    },
+                };
+                if provider
+                    .psa_generate_key_internal(&application_identity, op)
+                    .is_err()
+                {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Failed to generate attesting key",
+                    ));
+                };
+            }
+            Some(AttestingKeyConfig::Rsa) => {
+                let op = psa_generate_key::Operation {
+                    key_name: String::from("Attesting Key"),
+                    attributes: psa_key_attributes::Attributes {
+                        lifetime: psa_key_attributes::Lifetime::Persistent,
+                        key_type: psa_key_attributes::Type::RsaKeyPair,
+                        bits: 2048,
+                        policy: Policy {
+                            usage_flags: *UsageFlags::default()
+                                .set_sign_hash()
+                                .set_sign_message()
+                                .set_verify_hash()
+                                .set_verify_message(),
+                            permitted_algorithms: Algorithm::AsymmetricSignature(RsaPkcs1v15Sign {
+                                hash_alg: Specific(Sha256),
+                            }),
+                        },
+                    },
+                };
+                if provider
+                    .psa_generate_key_internal(&application_identity, op)
+                    .is_err()
+                {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidData,
+                        "Failed to generate attesting key",
+                    ));
+                };
+            }
+            None => (),
+        };
+        Ok(provider)
     }
 }
 
@@ -257,6 +331,12 @@ impl Provide for Provider {
 
 impl Drop for Provider {
     fn drop(&mut self) {
+        let key_identity = KeyIdentity::new(
+            ApplicationIdentity::new(String::from("Provider"), AuthType::NoAuth),
+            self.provider_identity.clone(),
+            String::from("Attesting Key"),
+        );
+        let _ = self.key_info_store.remove_key_info(&key_identity);
         info!("Dropping the TPM Provider.");
     }
 }
@@ -275,7 +355,8 @@ pub struct ProviderBuilder {
     tcti: Option<String>,
     owner_hierarchy_auth: Option<String>,
     endorsement_hierarchy_auth: Option<String>,
-    rot_config: Option<TpmRotConfig>,
+    root_of_trust: Option<TpmRotConfig>,
+    attesting_key: Option<AttestingKeyConfig>,
 }
 
 impl ProviderBuilder {
@@ -287,7 +368,8 @@ impl ProviderBuilder {
             tcti: None,
             owner_hierarchy_auth: None,
             endorsement_hierarchy_auth: None,
-            rot_config: None,
+            root_of_trust: None,
+            attesting_key: None,
         }
     }
 
@@ -330,8 +412,18 @@ impl ProviderBuilder {
     }
 
     /// Specify the root of trust to use
-    pub fn with_rot_config(mut self, rot_config: Option<TpmRotConfig>) -> ProviderBuilder {
-        self.rot_config = rot_config;
+    pub fn with_root_of_trust(mut self, root_of_trust: Option<TpmRotConfig>) -> ProviderBuilder {
+        self.root_of_trust = root_of_trust;
+
+        self
+    }
+
+    /// Specify the type of attesting key to use
+    pub fn with_attesting_key(
+        mut self,
+        attesting_key: Option<AttestingKeyConfig>,
+    ) -> ProviderBuilder {
+        self.attesting_key = attesting_key;
 
         self
     }
@@ -429,7 +521,7 @@ impl ProviderBuilder {
             builder = builder.with_hierarchy_auth(Hierarchy::Endorsement, endorsement_auth);
             self.endorsement_hierarchy_auth.zeroize();
         }
-        Ok(Provider::new(
+        Provider::new(
             self.provider_name.ok_or_else(|| {
                 std::io::Error::new(std::io::ErrorKind::InvalidData, "missing provider name")
             })?,
@@ -440,7 +532,8 @@ impl ProviderBuilder {
                 format_error!("Error creating TSS Transient Object Context", e);
                 std::io::Error::new(ErrorKind::InvalidData, "failed initializing TSS context")
             })?,
-            self.rot_config,
-        ))
+            self.root_of_trust,
+            self.attesting_key,
+        )
     }
 }

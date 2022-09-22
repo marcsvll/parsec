@@ -6,15 +6,12 @@ use crate::key_info_managers::KeyIdentity;
 use crate::utils::config::TpmRotConfig;
 use log::error;
 use parsec_interface::operations::{attest_key, prepare_key_attestation};
-use parsec_interface::requests::{ResponseStatus, Result};
+use parsec_interface::requests::{AuthType, ResponseStatus, Result};
 use parsec_interface::secrecy::zeroize::Zeroizing;
 use std::convert::TryFrom;
-use tss_esapi::abstraction::transient::KeyParams;
 use tss_esapi::constants::TpmFormatOneError;
 use tss_esapi::error::TpmResponseCode;
-use tss_esapi::interface_types::algorithm::HashingAlgorithm;
-use tss_esapi::interface_types::key_bits::RsaKeyBits;
-use tss_esapi::structures::{HashScheme, PcrSelectionListBuilder, PcrSlot, RsaExponent, RsaScheme};
+use tss_esapi::structures::{PcrSelectionListBuilder, PcrSlot};
 use tss_esapi::{abstraction::transient::ObjectWrapper, structures::Auth};
 use tss_esapi::{Error, ReturnCode};
 
@@ -192,22 +189,44 @@ impl Provider {
             return Err(ResponseStatus::PsaErrorNotSupported);
         }
 
-        let key_identity = KeyIdentity::new(
+        let attested_key_identity = KeyIdentity::new(
             application_identity.clone(),
             self.provider_identity.clone(),
             attested_key_name,
         );
-        let pass_context = self.get_key_ctx(&key_identity)?;
-        let key_attributes = self.key_info_store.get_key_attributes(&key_identity)?;
-        let params = utils::parsec_to_tpm_params(key_attributes)?;
-        let auth = Some(
-            Auth::try_from(pass_context.auth_value().to_vec())
+        let attested_key_pass_context = self.get_key_ctx(&attested_key_identity)?;
+        let attested_key_attributes = self
+            .key_info_store
+            .get_key_attributes(&attested_key_identity)?;
+        let attested_key_params = utils::parsec_to_tpm_params(attested_key_attributes)?;
+        let attested_key_auth = Some(
+            Auth::try_from(attested_key_pass_context.auth_value().to_vec())
                 .map_err(utils::to_response_status)?,
         );
         let attested_key = ObjectWrapper {
-            material: pass_context.key_material().clone(),
-            auth,
-            params,
+            material: attested_key_pass_context.key_material().clone(),
+            auth: attested_key_auth,
+            params: attested_key_params,
+        };
+
+        let attesting_key_identity = KeyIdentity::new(
+            ApplicationIdentity::new(String::from("Provider"), AuthType::NoAuth),
+            self.provider_identity.clone(),
+            String::from("Attesting Key"),
+        );
+        let attesting_key_pass_context = self.get_key_ctx(&attesting_key_identity)?;
+        let attesting_key_attributes = self
+            .key_info_store
+            .get_key_attributes(&attesting_key_identity)?;
+        let attesting_key_params = utils::parsec_to_tpm_params(attesting_key_attributes)?;
+        let attesting_key_auth = Some(
+            Auth::try_from(attesting_key_pass_context.auth_value().to_vec())
+                .map_err(utils::to_response_status)?,
+        );
+        let attesting_key = ObjectWrapper {
+            material: attesting_key_pass_context.key_material().clone(),
+            auth: attesting_key_auth,
+            params: attesting_key_params,
         };
 
         let mut esapi_context = self
@@ -215,24 +234,7 @@ impl Provider {
             .lock()
             .expect("ESAPI Context lock poisoned");
 
-        let params = KeyParams::Rsa {
-            size: RsaKeyBits::Rsa2048,
-            scheme: RsaScheme::RsaSsa(HashScheme::new(HashingAlgorithm::Sha256)),
-            pub_exponent: RsaExponent::create(0).unwrap(),
-        };
-
-        let (attesting_key_material, auth) = esapi_context.create_key(params, 32).map_err(|e| {
-            format_error!("Failed to create key", e);
-            key_attest_response_status(e)
-        })?;
-
-        let attesting_key = ObjectWrapper {
-            material: attesting_key_material,
-            auth,
-            params,
-        };
-
-        let pcr_selection_list = match self.rot_config.clone() {
+        let pcr_selection_list = match self.root_of_trust.clone() {
             None => {
                 error!("TPM RoT config does not exist");
                 return Err(ResponseStatus::PsaErrorGenericError);

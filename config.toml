@@ -214,7 +214,9 @@ key_info_manager = "sqlite-manager"
 # (Optional) Allows the service to still start without this provider if there is no TPM on the system. The priority list of providers will be as if this provider was commented out.
 #skip_if_no_tpm = false
 # (Optional) List of values to be used in the pcr list.
-#rot_config = {pcr_list = [0,1,2] ,pcr_hash_alg = "Sha256"}
+#root_of_trust = {pcr_list = [0,1,2] ,pcr_hash_alg = "Sha256"}
+# (Optional) Configuration for the attesting key
+#attesting_key = "Rsa"
 
 # Example of a CryptoAuthLib provider configuration
 # All below parameters depend on what devices, interfaces or parameters are required or supported by
