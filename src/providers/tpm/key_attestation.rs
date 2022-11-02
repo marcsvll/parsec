@@ -3,10 +3,11 @@
 use super::{utils, Provider};
 use crate::authenticators::ApplicationIdentity;
 use crate::key_info_managers::KeyIdentity;
-use crate::utils::config::TpmRotConfig;
+use crate::utils::config::{PcrHashAlgType, TpmRotConfig};
 use log::error;
-use parsec_interface::operations::{attest_key, prepare_key_attestation};
-use parsec_interface::requests::{AuthType, ResponseStatus, Result};
+use parsec_interface::operations::psa_algorithm::Hash;
+use parsec_interface::operations::{attest_key, list_rots, prepare_key_attestation};
+use parsec_interface::requests::{ProviderId, ResponseStatus, Result};
 use parsec_interface::secrecy::zeroize::Zeroizing;
 use std::convert::TryFrom;
 use tss_esapi::constants::TpmFormatOneError;
@@ -189,6 +190,7 @@ impl Provider {
             return Err(ResponseStatus::PsaErrorNotSupported);
         }
 
+        // Prepare attested key
         let attested_key_identity = KeyIdentity::new(
             application_identity.clone(),
             self.provider_identity.clone(),
@@ -209,10 +211,11 @@ impl Provider {
             params: attested_key_params,
         };
 
+        // Prepare attesting key
         let attesting_key_identity = KeyIdentity::new(
-            ApplicationIdentity::new(String::from("Provider"), AuthType::NoAuth),
+            ApplicationIdentity::new_internal(String::from("tpm-provider")),
             self.provider_identity.clone(),
-            String::from("Attesting Key"),
+            String::from("aik"),
         );
         let attesting_key_pass_context = self.get_key_ctx(&attesting_key_identity)?;
         let attesting_key_attributes = self
@@ -236,7 +239,7 @@ impl Provider {
 
         let pcr_selection_list = match self.root_of_trust.clone() {
             None => {
-                error!("TPM RoT config does not exist");
+                error!("TPM RoT not configured");
                 return Err(ResponseStatus::PsaErrorGenericError);
             }
             Some(TpmRotConfig {
@@ -244,7 +247,7 @@ impl Provider {
                 pcr_hash_alg: Some(pcr_hash_alg),
             }) => {
                 if pcr_list.iter().any(|value| *value > 31) {
-                    error!("PCR index invalid");
+                    error!("PCR index invalid in TPM RoT config");
                     return Err(ResponseStatus::PsaErrorGenericError);
                 }
                 PcrSelectionListBuilder::new()
@@ -256,10 +259,13 @@ impl Provider {
                             .collect::<Vec<PcrSlot>>(),
                     )
                     .build()
-                    .expect("Failed to create first PcrSelectionList for pcr_read call")
+                    .map_err(|e| {
+                        format_error!("Failed to create PcrSelectionList", e);
+                        key_attest_response_status(e)
+                    })?
             }
             _ => {
-                error!("TPM RoT config invalid");
+                error!("TPM RoT invalidly configured (some of the required elements are missing)");
                 return Err(ResponseStatus::PsaErrorGenericError);
             }
         };
@@ -282,18 +288,62 @@ impl Provider {
             key_attestation_certificate: key_statement
                 .encode()
                 .map_err(|e| {
-                    format_error!("Failed to encode key attestation certificate", e);
+                    format_error!("Failed to encode key attestation token", e);
                     key_attest_response_status(e)
                 })?
                 .into(),
             platform_attestation_certificate: platform_statement
                 .encode()
                 .map_err(|e| {
-                    format_error!("Failed to encode platform attestation certificate", e);
+                    format_error!("Failed to encode platform attestation token", e);
                     key_attest_response_status(e)
                 })?
                 .into(),
         })
+    }
+
+    pub(super) fn list_rots_internal(&self) -> Result<list_rots::Result> {
+        match self.root_of_trust.clone() {
+            None => Ok(list_rots::Result { rots: Vec::new() }),
+            Some(TpmRotConfig {
+                pcr_list: Some(pcr_list),
+                pcr_hash_alg: Some(pcr_hash_alg),
+            }) => {
+                // Prepare attesting key
+                let attesting_key_identity = KeyIdentity::new(
+                    ApplicationIdentity::new_internal(String::from("tpm-provider")),
+                    self.provider_identity.clone(),
+                    String::from("aik"),
+                );
+                let attesting_key_pass_context = self.get_key_ctx(&attesting_key_identity)?;
+                let attesting_key_attributes = self
+                    .key_info_store
+                    .get_key_attributes(&attesting_key_identity)?;
+                let pcr_hash = match pcr_hash_alg {
+                    PcrHashAlgType::Sha256 => Hash::Sha256,
+                };
+
+                Ok(list_rots::Result {
+                    rots: vec![list_rots::RoTInfo {
+                        provider_id: ProviderId::Tpm,
+                        mechanism: list_rots::Mechanism::CertifyAndQuote {
+                            ak_attributes: attesting_key_attributes,
+                            ak_public: utils::pub_key_to_bytes(
+                                attesting_key_pass_context.key_material().public().clone(),
+                                attesting_key_attributes,
+                            )?
+                            .into(),
+                            pcr_list,
+                            pcr_hash,
+                        },
+                    }],
+                })
+            }
+            _ => {
+                error!("TPM RoT invalidly configured (some of the required elements are missing)");
+                Err(ResponseStatus::PsaErrorGenericError)
+            }
+        }
     }
 }
 

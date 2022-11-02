@@ -98,7 +98,7 @@ impl BackEndHandler {
 
         if opcode.is_admin() {
             let app =
-                unwrap_or_else_return!((&app).as_ref().ok_or(ResponseStatus::NotAuthenticated));
+                unwrap_or_else_return!((app).as_ref().ok_or(ResponseStatus::NotAuthenticated));
 
             if !app.is_admin() {
                 warn!(
@@ -322,6 +322,11 @@ impl BackEndHandler {
                     unwrap_or_else_return!(self.provider.attest_key(app.identity(), op_attest_key));
                 trace!("attest_key egress");
                 self.result_to_response(NativeResult::AttestKey(result), header)
+            }
+            NativeOperation::ListRoTs(op_list_rots) => {
+                let result = unwrap_or_else_return!(self.provider.list_rots(op_list_rots));
+                trace!("list_rots egress");
+                self.result_to_response(NativeResult::ListRoTs(result), header)
             }
         }
     }

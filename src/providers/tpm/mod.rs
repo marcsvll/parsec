@@ -18,12 +18,12 @@ use parsec_interface::operations::psa_algorithm::Hash::Sha256;
 use parsec_interface::operations::psa_algorithm::SignHash::Specific;
 use parsec_interface::operations::psa_key_attributes::{EccFamily, Policy, UsageFlags};
 use parsec_interface::operations::{
-    attest_key, can_do_crypto, prepare_key_attestation, psa_asymmetric_decrypt,
+    attest_key, can_do_crypto, list_rots, prepare_key_attestation, psa_asymmetric_decrypt,
     psa_asymmetric_encrypt, psa_destroy_key, psa_export_public_key, psa_generate_key,
     psa_generate_random, psa_import_key, psa_key_attributes, psa_sign_hash, psa_verify_hash,
 };
 use parsec_interface::operations::{list_clients, list_keys, list_providers::ProviderInfo};
-use parsec_interface::requests::{AuthType, Opcode, ProviderId, ResponseStatus, Result};
+use parsec_interface::requests::{Opcode, ProviderId, ResponseStatus, Result};
 use std::collections::HashSet;
 use std::io::ErrorKind;
 use std::str::FromStr;
@@ -112,12 +112,11 @@ impl Provider {
             root_of_trust,
             attesting_key,
         };
-        let application_identity =
-            ApplicationIdentity::new(String::from("Provider"), AuthType::NoAuth);
+        let provider_identity = ApplicationIdentity::new_internal(String::from("tpm-provider"));
         match attesting_key {
             Some(AttestingKeyConfig::Ecc) => {
                 let op = psa_generate_key::Operation {
-                    key_name: String::from("Attesting Key"),
+                    key_name: String::from("aik"),
                     attributes: psa_key_attributes::Attributes {
                         lifetime: psa_key_attributes::Lifetime::Persistent,
                         key_type: psa_key_attributes::Type::EccKeyPair {
@@ -137,7 +136,7 @@ impl Provider {
                     },
                 };
                 if provider
-                    .psa_generate_key_internal(&application_identity, op)
+                    .psa_generate_key_internal(&provider_identity, op)
                     .is_err()
                 {
                     return Err(std::io::Error::new(
@@ -148,7 +147,7 @@ impl Provider {
             }
             Some(AttestingKeyConfig::Rsa) => {
                 let op = psa_generate_key::Operation {
-                    key_name: String::from("Attesting Key"),
+                    key_name: String::from("aik"),
                     attributes: psa_key_attributes::Attributes {
                         lifetime: psa_key_attributes::Lifetime::Persistent,
                         key_type: psa_key_attributes::Type::RsaKeyPair,
@@ -166,7 +165,7 @@ impl Provider {
                     },
                 };
                 if provider
-                    .psa_generate_key_internal(&application_identity, op)
+                    .psa_generate_key_internal(&provider_identity, op)
                     .is_err()
                 {
                     return Err(std::io::Error::new(
@@ -327,14 +326,19 @@ impl Provide for Provider {
         trace!("attest_key ingress");
         self.attest_key_internal(application_identity, op)
     }
+
+    fn list_rots(&self, _op: list_rots::Operation) -> Result<list_rots::Result> {
+        trace!("list_rots ingress");
+        self.list_rots_internal()
+    }
 }
 
 impl Drop for Provider {
     fn drop(&mut self) {
         let key_identity = KeyIdentity::new(
-            ApplicationIdentity::new(String::from("Provider"), AuthType::NoAuth),
+            ApplicationIdentity::new_internal(String::from("tpm-provider")),
             self.provider_identity.clone(),
-            String::from("Attesting Key"),
+            String::from("aik"),
         );
         let _ = self.key_info_store.remove_key_info(&key_identity);
         info!("Dropping the TPM Provider.");

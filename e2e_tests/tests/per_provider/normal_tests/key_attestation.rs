@@ -264,4 +264,11 @@ mod activate_credential {
             ResponseStatus::PsaErrorCommunicationFailure
         );
     }
+
+    #[test]
+    fn list_rots() {
+        let client = TestClient::new();
+        let rots = client.list_rots().expect("failed to get RoT data");
+        dbg!(rots);
+    }
 }

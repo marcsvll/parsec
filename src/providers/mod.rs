@@ -36,7 +36,7 @@ pub mod trusted_service;
 use crate::authenticators::ApplicationIdentity;
 use parsec_interface::operations::{
     attest_key, can_do_crypto, delete_client, list_authenticators, list_clients, list_keys,
-    list_opcodes, list_providers, ping, prepare_key_attestation, psa_aead_decrypt,
+    list_opcodes, list_providers, list_rots, ping, prepare_key_attestation, psa_aead_decrypt,
     psa_aead_encrypt, psa_asymmetric_decrypt, psa_asymmetric_encrypt, psa_cipher_decrypt,
     psa_cipher_encrypt, psa_destroy_key, psa_export_key, psa_export_public_key, psa_generate_key,
     psa_generate_random, psa_hash_compare, psa_hash_compute, psa_import_key, psa_raw_key_agreement,
@@ -416,4 +416,7 @@ pub trait Provide {
         trace!("attest_key ingress");
         Err(ResponseStatus::PsaErrorNotSupported)
     }
+
+    /// List the Roots of Trust that the service is configured to interact with.
+    fn list_rots(&self, _op: list_rots::Operation) -> Result<list_rots::Result>;
 }

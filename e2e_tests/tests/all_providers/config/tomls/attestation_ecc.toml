@@ -28,5 +28,5 @@ key_info_manager = "on-disk-manager"
 tcti = "mssim:host=127.0.0.1,port=2321"
 owner_hierarchy_auth = ""
 endorsement_hierarchy_auth = ""
-root_of_trust = {pcr_list = [0,1,2] ,pcr_hash_alg = "Sha256"}
+root_of_trust = {pcr_list = [0,1,2] , pcr_hash_alg = "Sha256"}
 attesting_key = "Ecc"

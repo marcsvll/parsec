@@ -11,7 +11,7 @@ use derivative::Derivative;
 use log::{error, trace};
 use parsec_interface::operations::{
     delete_client, list_authenticators, list_clients, list_keys, list_opcodes, list_providers,
-    ping, psa_destroy_key,
+    list_rots, ping, psa_destroy_key,
 };
 use parsec_interface::operations::{
     list_authenticators::AuthenticatorInfo, list_keys::KeyInfo, list_providers::ProviderInfo,
@@ -136,6 +136,24 @@ impl Provide for Provider {
         Ok(list_clients::Result { clients })
     }
 
+    fn list_rots(&self, _op: list_rots::Operation) -> Result<list_rots::Result> {
+        let mut rots = Vec::new();
+        for provider in &self.prov_list {
+            let id = if let Ok((provider_info, _)) = provider.describe() {
+                provider_info.id.to_string()
+            } else {
+                "unknown".to_string()
+            };
+            let mut result = provider.list_rots(_op).unwrap_or_else(|e| {
+                error!("list_rots failed on provider {} with {}", id, e);
+                list_rots::Result { rots: Vec::new() }
+            });
+            rots.append(&mut result.rots);
+        }
+
+        Ok(list_rots::Result { rots })
+    }
+
     fn delete_client(
         &self,
         application_identity: &ApplicationIdentity,
@@ -154,9 +172,9 @@ impl Provide for Provider {
             // Currently Parsec only stores keys, we delete all of them.
             let keys = provider
                 .list_keys(
-                    &ApplicationIdentity::new(
+                    &ApplicationIdentity::new_with_auth(
                         client.clone(),
-                        *application_identity.authenticator_id(),
+                        *application_identity.auth(),
                     ),
                     list_keys::Operation {},
                 )
@@ -169,9 +187,9 @@ impl Provide for Provider {
                 let key_name = key.name;
                 let _ = provider
                     .psa_destroy_key(
-                        &ApplicationIdentity::new(
+                        &ApplicationIdentity::new_with_auth(
                             client.clone(),
-                            *application_identity.authenticator_id(),
+                            *application_identity.auth(),
                         ),
                         psa_destroy_key::Operation { key_name },
                     )

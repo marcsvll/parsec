@@ -314,7 +314,7 @@ impl SQLiteKeyInfoManager {
                 (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9);
             ",
             params![
-                *key_identity.application().authenticator_id() as u8,
+                key_identity.application().authenticator_id(),
                 key_identity.application().name(),
                 key_identity.provider().uuid(),
                 key_identity.provider().name(),
@@ -345,7 +345,7 @@ impl SQLiteKeyInfoManager {
                 AND `key_name` = ?3
             ",
             params![
-                *key_identity.application().authenticator_id() as u8,
+                key_identity.application().authenticator_id(),
                 key_identity.application().name(),
                 key_identity.key_name(),
             ],

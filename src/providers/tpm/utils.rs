@@ -365,21 +365,21 @@ fn octet_string_to_elliptic_curve_point(mut data: Vec<u8>) -> (Vec<u8>, Vec<u8>)
 pub fn signature_data_to_bytes(data: Signature, key_attributes: Attributes) -> Result<Vec<u8>> {
     match data {
         Signature::RsaSsa(rsa_signature) | Signature::RsaPss(rsa_signature) => {
-            Ok(rsa_signature.signature().value().to_vec())
+            Ok(rsa_signature.signature().as_bytes().to_vec())
         }
         Signature::EcDsa(ecc_signature) => {
             // ECDSA signature data is represented the concatenation of the two result values, r and s,
             // in big endian format, as described here:
             // https://parallaxsecond.github.io/parsec-book/parsec_client/operations/psa_algorithm.html#asymmetricsignature-algorithm
             let p_byte_size = key_attributes.bits / 8; // should not fail for valid keys
-            if ecc_signature.signature_r().value().len() != p_byte_size
-                || ecc_signature.signature_s().value().len() != p_byte_size
+            if ecc_signature.signature_r().as_bytes().len() != p_byte_size
+                || ecc_signature.signature_s().as_bytes().len() != p_byte_size
             {
                 if crate::utils::GlobalConfig::log_error_details() {
                     error!(
                         "Received ECC signature with invalid size: r - {} bytes; s - {} bytes",
-                        ecc_signature.signature_r().value().len(),
-                        ecc_signature.signature_s().value().len()
+                        ecc_signature.signature_r().as_bytes().len(),
+                        ecc_signature.signature_s().as_bytes().len()
                     );
                 } else {
                     error!("Received ECC signature with invalid size.");
@@ -388,8 +388,8 @@ pub fn signature_data_to_bytes(data: Signature, key_attributes: Attributes) -> R
             }
 
             let mut signature = vec![];
-            signature.append(&mut ecc_signature.signature_r().value().to_vec());
-            signature.append(&mut ecc_signature.signature_s().value().to_vec());
+            signature.append(&mut ecc_signature.signature_r().as_bytes().to_vec());
+            signature.append(&mut ecc_signature.signature_s().as_bytes().to_vec());
             Ok(signature)
         }
         _ => {

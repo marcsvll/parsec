@@ -39,25 +39,38 @@ pub struct ApplicationIdentity {
     /// The name of the application.
     name: String,
     /// The id of the authenticator used to authenticate the application name.
-    authenticator_id: AuthType,
+    auth: Auth,
 }
 
 impl fmt::Display for ApplicationIdentity {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(
             f,
-            "ApplicationIdentity: [name=\"{}\", authenticator_id=\"{}\"]",
-            self.name, self.authenticator_id
+            "ApplicationIdentity: [name=\"{}\", auth=\"{}\"]",
+            self.name, self.auth
         )
     }
 }
 
 impl ApplicationIdentity {
-    /// Creates a new instance of ProviderIdentity.
+    /// Creates a new instance of ApplicationIdentity using the client-facing authenticator type.
     pub fn new(name: String, authenticator_id: AuthType) -> ApplicationIdentity {
         ApplicationIdentity {
             name,
-            authenticator_id,
+            auth: authenticator_id.into(),
+        }
+    }
+
+    /// Creates a new instance of ApplicationIdentity using the authenticator type.
+    pub fn new_with_auth(name: String, auth: Auth) -> ApplicationIdentity {
+        ApplicationIdentity { name, auth }
+    }
+
+    /// Creates a new instance of ApplicationIdentity using the internal authenticator
+    pub fn new_internal(name: String) -> ApplicationIdentity {
+        ApplicationIdentity {
+            name,
+            auth: Auth::Internal,
         }
     }
 
@@ -66,9 +79,52 @@ impl ApplicationIdentity {
         &self.name
     }
 
-    /// Get whether the application has administrator rights
-    pub fn authenticator_id(&self) -> &AuthType {
-        &self.authenticator_id
+    /// Get the numeric ID of the authenticator
+    pub fn authenticator_id(&self) -> u8 {
+        self.auth.authenticator_id()
+    }
+
+    /// Get the authenticator type of the application
+    pub fn auth(&self) -> &Auth {
+        &self.auth
+    }
+}
+
+/// Authentication type covering both internal and external sources
+#[derive(PartialEq, Eq, Hash, Copy, Clone, Debug)]
+pub enum Auth {
+    /// An authentication origination from a client request
+    Client(AuthType),
+    /// An authentication origination from within the service
+    Internal,
+}
+
+impl Auth {
+    /// Get the numeric ID of the authenticator
+    pub fn authenticator_id(&self) -> u8 {
+        match self {
+            Auth::Client(auth) => *auth as u8,
+            Auth::Internal => 255,
+        }
+    }
+}
+
+impl From<AuthType> for Auth {
+    fn from(auth: AuthType) -> Self {
+        Auth::Client(auth)
+    }
+}
+
+impl fmt::Display for Auth {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Auth::Client(auth) => {
+                write!(f, "Client authenticator ({})", auth)
+            }
+            Auth::Internal => {
+                write!(f, "Internal service authenticator")
+            }
+        }
     }
 }
 

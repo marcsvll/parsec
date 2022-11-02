@@ -453,7 +453,6 @@ fn activate_cred_no_auth() {
     );
 }
 
-<<<<<<< HEAD
 #[cfg(feature = "pkcs11-provider")]
 fn init_pkcs11_token(lib: &str, so_pin: &str, pin: &str) -> String {
     use cryptoki::context::{CInitializeArgs, Pkcs11};

@@ -328,7 +328,7 @@ dependencies = [
  "asn1-rs",
  "displaydoc",
  "nom 7.1.1",
- "num-bigint 0.4.3",
+ "num-bigint",
  "num-traits",
  "rusticata-macros",
 ]
@@ -713,7 +713,7 @@ dependencies = [
  "bitflags",
  "generic-array",
  "jsonwebtoken",
- "num-bigint 0.4.3",
+ "num-bigint",
  "serde",
  "serde_json",
  "thiserror",
@@ -863,26 +863,15 @@ dependencies = [
 
 [[package]]
 name = "num"
-version = "0.3.1"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8b7a8e9be5e039e2ff869df49155f1c06bd01ade2117ec783e56ab0932b67a8f"
+checksum = "43db66d1170d347f9a065114077f7dccb00c1b9478c89384490a3425279a4606"
 dependencies = [
- "num-bigint 0.3.3",
+ "num-bigint",
  "num-complex",
  "num-integer",
  "num-iter",
  "num-rational",
- "num-traits",
-]
-
-[[package]]
-name = "num-bigint"
-version = "0.3.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5f6f7833f2cbf2360a6cfd58cd41a53aa7a90bd4c202f5b1c7dd2ed73c57b2c3"
-dependencies = [
- "autocfg",
- "num-integer",
  "num-traits",
 ]
 
@@ -899,9 +888,9 @@ dependencies = [
 
 [[package]]
 name = "num-complex"
-version = "0.3.1"
+version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "747d632c0c558b87dbabbe6a82f3b4ae03720d0646ac5b7b4dae89394be5f2c5"
+checksum = "7ae39348c8bc5fbd7f40c727a9925f03517afd2ab27d46702108b6a7e5414c19"
 dependencies = [
  "num-traits",
 ]
@@ -940,12 +929,12 @@ dependencies = [
 
 [[package]]
 name = "num-rational"
-version = "0.3.2"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "12ac428b1cb17fce6f731001d307d351ec70a6d202fc2e60f7d4c5e42d8f4f07"
+checksum = "0638a1c9d0a3c0914158145bc76cff373a75a627e6ecbfb71cbe6f453a5a19b0"
 dependencies = [
  "autocfg",
- "num-bigint 0.3.3",
+ "num-bigint",
  "num-integer",
  "num-traits",
 ]
@@ -1029,8 +1018,8 @@ dependencies = [
 
 [[package]]
 name = "parsec-interface"
-version = "0.26.0"
-source = "git+https://github.com/ionut-arm/parsec-interface-rs.git?branch=attested-tls#98af2b0d1da179ecf5218c7b9ae3395d083f3b1e"
+version = "0.27.0"
+source = "git+https://github.com/ionut-arm/parsec-interface-rs.git?branch=attested-tls#9c922087dd0960ffd88c25172714260b174b46c0"
 dependencies = [
  "bincode",
  "derivative",
@@ -1060,6 +1049,7 @@ dependencies = [
  "hex",
  "libc",
  "log",
+ "num-derive",
  "num-traits",
  "parsec-interface",
  "picky-asn1",
@@ -1588,7 +1578,7 @@ version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "adc4e5204eb1910f40f9cfa375f6f05b68c3abac4b6fd879c8ff5e7ae8a0a085"
 dependencies = [
- "num-bigint 0.4.3",
+ "num-bigint",
  "num-traits",
  "thiserror",
  "time",
@@ -1829,6 +1819,7 @@ dependencies = [
 [[package]]
 name = "tss-esapi"
 version = "7.1.0"
+source = "git+https://github.com/ionut-arm/rust-tss-esapi.git?branch=attested-tls#8ea9f4873c7d7361e678ba864468f4d55efe85ed"
 dependencies = [
  "bitfield",
  "cfg-if",
@@ -1852,6 +1843,7 @@ dependencies = [
 [[package]]
 name = "tss-esapi-sys"
 version = "0.3.0"
+source = "git+https://github.com/ionut-arm/rust-tss-esapi.git?branch=attested-tls#8ea9f4873c7d7361e678ba864468f4d55efe85ed"
 dependencies = [
  "pkg-config",
  "target-lexicon",
@@ -2113,7 +2105,7 @@ version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e262a29d0e61ccf2b6190d7050d4b237535fc76ce4c1210d9caa316f71dffa75"
 dependencies = [
- "num-bigint 0.4.3",
+ "num-bigint",
 ]
 
 [[package]]

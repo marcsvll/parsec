@@ -31,6 +31,7 @@
 pub mod raw_request;
 pub mod stress;
 
+use parsec_client::core::interface::operations::list_rots::RoTInfo;
 pub use raw_request::RawRequestClient;
 
 pub use parsec_client;
@@ -934,6 +935,10 @@ impl TestClient {
         self.basic_client
             .certify_and_quote_attestation(key_name, attesting_key, nonce)
             .map_err(convert_error)
+    }
+
+    pub fn list_rots(&self) -> Result<Vec<RoTInfo>> {
+        self.basic_client.list_rots().map_err(convert_error)
     }
 }
 

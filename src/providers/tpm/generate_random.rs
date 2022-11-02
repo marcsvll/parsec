@@ -25,7 +25,7 @@ impl Provider {
                 utils::to_response_status(e)
             })?;
         Ok(psa_generate_random::Result {
-            random_bytes: random_bytes.value().to_vec().into(),
+            random_bytes: random_bytes.as_bytes().to_vec().into(),
         })
     }
 }
