@@ -1868,7 +1868,7 @@ dependencies = [
 [[package]]
 name = "tss-esapi"
 version = "7.1.0"
-source = "git+https://github.com/ionut-arm/rust-tss-esapi.git?branch=attested-tls#a33436f4027b5aaf7680ee1a9518e51f81aa17c0"
+source = "git+https://github.com/ionut-arm/rust-tss-esapi.git?branch=attested-tls#03876760cd3fe37b7e8297316d568b63301820d9"
 dependencies = [
  "bitfield",
  "cfg-if",
@@ -1895,7 +1895,7 @@ dependencies = [
 [[package]]
 name = "tss-esapi-sys"
 version = "0.3.0"
-source = "git+https://github.com/ionut-arm/rust-tss-esapi.git?branch=attested-tls#a33436f4027b5aaf7680ee1a9518e51f81aa17c0"
+source = "git+https://github.com/ionut-arm/rust-tss-esapi.git?branch=attested-tls#03876760cd3fe37b7e8297316d568b63301820d9"
 dependencies = [
  "pkg-config",
  "target-lexicon",
